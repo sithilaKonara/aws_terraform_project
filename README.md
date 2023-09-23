@@ -9,10 +9,10 @@ This project contains the Terraform code for deploying an Onprem server patching
 
 │  .gitignore
 │  README.md
-|  data.tf
-|  main.tf
-|  output.tf
-|  variable.tf
+|   data.tf
+|   main.tf
+|   output.tf
+|   variable.tf
 │
 ├───modules
 │   └───connection_lost_servers
