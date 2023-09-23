@@ -1,6 +1,6 @@
 variable "v_logs_portal_global_tags" {}
 
-variable "v_logs_portal_poos_tags" {}
+# variable "v_logs_portal_poos_tags" {}
 
 variable "v_logs_portal_account_id" {}
 

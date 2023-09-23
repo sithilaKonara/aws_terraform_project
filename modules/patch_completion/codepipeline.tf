@@ -22,7 +22,7 @@ resource "aws_codebuild_project" "r_codebuild_project_ssm_patch_completion" {
     privileged_mode = true
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
-      value = var.v_patch_completion_reagion
+      value = var.v_patch_completion_region
     }
 
     environment_variable {

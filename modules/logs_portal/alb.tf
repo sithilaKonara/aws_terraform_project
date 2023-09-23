@@ -26,7 +26,7 @@ resource "aws_lb" "r_application_load_balancer_ssm_http" {
   load_balancer_type = "application"
   security_groups    = ["${var.v_logs_portal_security_groups_id["ALB-SECURITY_GROUP"]}"]
   #### > Construct below subnets < ####
-  subnets            = ["${var.v_logs_portal_subnet_public["SSM-VPN-PUBLIC-01"]}", "${var.v_logs_portal_subnet_public["SSM-VPN-PUBLIC-02"]}"]
+  subnets            = ["${var.v_logs_portal_subnet_public["ssm-vpn-public-01"]}", "${var.v_logs_portal_subnet_public["ssm-vpn-public-02"]}"]
 
   enable_deletion_protection = false
 

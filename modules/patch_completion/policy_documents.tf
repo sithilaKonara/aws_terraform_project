@@ -80,7 +80,7 @@ data "aws_iam_policy_document" "d_pd_codeBuild_patch_completion" {
   #### > Here we have cerculer dependancy, Policy refer code build arn and code build required this policy to build < ####
   statement {
     effect    = "Allow"
-    resources = ["arn:aws:codebuild:${var.v_patch_completion_reagion}:${var.v_patch_completion_account_id}:report-group/${var.v_patch_completion_function_name}-*"]
+    resources = ["arn:aws:codebuild:${var.v_patch_completion_region}:${var.v_patch_completion_account_id}:report-group/${var.v_patch_completion_function_name}-*"]
     actions = [
       "codebuild:CreateReportGroup",
       "codebuild:CreateReport",

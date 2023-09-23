@@ -24,7 +24,7 @@ resource "aws_ecs_task_definition" "r_patch_completion" {
           "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
-                "awslogs-region" : "${var.v_patch_completion_reagion}",
+                "awslogs-region" : "${var.v_patch_completion_region}",
                 "awslogs-group" : "/ecs/${var.v_patch_completion_function_name}",
                 "awslogs-stream-prefix" : "ecs"
               }

@@ -28,7 +28,7 @@ resource "aws_iam_role" "r_cbp_patch_completion_code_build_role" {
   name               = "codebuild-patch_completion-service-role"
   assume_role_policy = data.aws_iam_policy_document.d_pd_codeBuild_patch_completion_assume_policy.json
   inline_policy {
-    # name   = "CodeBuildBasePolicy-patch_completion-${var.v_patch_completion_reagion.current}"
+    # name   = "CodeBuildBasePolicy-patch_completion-${var.v_patch_completion_region.current}"
     name   = "CodeBuildBasePolicy-patch_completion"
     policy = data.aws_iam_policy_document.d_pd_codeBuild_patch_completion.json
   }
@@ -45,10 +45,10 @@ resource "aws_iam_role" "r_cbp_patch_completion_code_build_role" {
 
 
 # resource "aws_iam_role" "r_cbp_patch_completion_code_pipeline_role" {
-#   name               = "CodePipelineServiceRole-${var.v_patch_completion_reagion}-${var.v_patch_completion_function_name}"
+#   name               = "CodePipelineServiceRole-${var.v_patch_completion_region}-${var.v_patch_completion_function_name}"
 #   assume_role_policy = data.aws_iam_policy_document.d_pd_codeBuild_patch_completion_assume_policy.json
 #   inline_policy {
-#     name   = "CodePipelineServiceRole-${var.v_patch_completion_reagion}-${var.v_patch_completion_function_name}"
+#     name   = "CodePipelineServiceRole-${var.v_patch_completion_region}-${var.v_patch_completion_function_name}"
 #     policy = data.aws_iam_policy_document.d_pd_codePipeline_patch_completion.json
 #   }
 

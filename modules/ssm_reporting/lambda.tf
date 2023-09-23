@@ -22,7 +22,7 @@ resource "aws_lambda_function" "r_ssm_ecs_reporting" {
       TASK_DEFINITION       = "${var.v_function_name}:${aws_ecs_task_definition.r_ssm_store_patch_data.revision}"
       PRIVATE_SUBNETS       = "${var.v_s_private["ssm-vpn-private-01"]},${var.v_s_private["ssm-vpn-private-02"]}"
       TASK_NAME             = "${var.v_function_name}"
-      DATABASE              = "${var.v_ssm_eporting_dynamodb_table}"
+      DATABASE              = "${var.v_ssm_reporting_dynamodb_table}"
     }
   }
 }

@@ -2,13 +2,13 @@ variable "v_patch_completion_global_tags" {
   type = map(any)
 }
 
-variable "v_patch_completion_poos_tags" {
-  type = map(any)
-}
+# variable "v_patch_completion_poos_tags" {
+#   type = map(any)
+# }
 
 variable "v_patch_completion_account_id" {}
 
-variable "v_patch_completion_reagion" {}
+variable "v_patch_completion_region" {}
 
 variable "v_patch_completion_function_name" {}
 

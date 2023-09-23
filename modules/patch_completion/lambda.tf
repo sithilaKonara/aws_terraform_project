@@ -19,7 +19,7 @@ resource "aws_lambda_function" "r_ssm_patch_completion_lambda" {
   environment {
     variables = {
       ASSUME_EXECUTION_ROLE = "${var.v_patch_completion_iam_role_automation_execution["ssm-automationExecutionRole_name"]}"
-      AWS_SES_REGION        = "${var.v_patch_completion_reagion}"
+      AWS_SES_REGION        = "${var.v_patch_completion_region}"
       DATABASE              = "${var.v_patch_completion_ssm_global_resource_sync_database}"
       DATABASE_PDT          = "${var.v_patch_completion_pdt_table.id}"
       DATABASE_MPF          = "${var.v_patch_completion_monthly_patching_failures_db_table.id}"

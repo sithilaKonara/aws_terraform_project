@@ -1,5 +1,5 @@
 variable "v_ms_teams_notifications_global_tags" {}
-variable "v_ms_teams_notifications_poos_tags" {}
+# variable "v_ms_teams_notifications_poos_tags" {}
 variable "v_ms_teams_notifications_account_id" {}
 variable "v_ms_teams_notifications_region" {}
 variable "v_ms_teams_notifications_function_name" {}

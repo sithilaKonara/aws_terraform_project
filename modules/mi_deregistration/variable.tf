@@ -1,5 +1,5 @@
 variable "v_mi_deregistration_global_tags" {}
-variable "v_mi_deregistration_poos_tags" {}
+# variable "v_mi_deregistration_poos_tags" {}
 variable "v_mi_deregistration_account_id" {}
 variable "v_mi_deregistration_region" {}
 variable "v_mi_deregistration_function_name" {}

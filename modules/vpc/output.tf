@@ -40,7 +40,7 @@ output "o_aws_vpc_endpoint" {
   }
 }
 
-output "o_o_ssm_security_groups" {
+output "o_ssm_security_groups" {
   value = {
     ALB-SECURITY_GROUP         = "${aws_security_group.r_security_group_alb_vpn.id}",
     ECS-SERVICE-SECURITY_GROUP = "${aws_security_group.r_security_group_ecs_service_vpn.id}"

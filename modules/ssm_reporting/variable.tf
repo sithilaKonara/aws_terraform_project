@@ -41,4 +41,4 @@ variable "v_ecsTaskExecutionRole" {}
 
 variable "v_codebuildArtifactStore" {}
 
-variable "v_ssm_eporting_dynamodb_table" {}
+variable "v_ssm_reporting_dynamodb_table" {}

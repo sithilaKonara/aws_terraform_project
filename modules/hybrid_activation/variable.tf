@@ -1,5 +1,5 @@
 variable "v_hybrid_activation_global_tags" {}
-variable "v_hybrid_activation_poos_tags" {}
+# variable "v_hybrid_activation_poos_tags" {}
 variable "v_hybrid_activation_account_id" {}
 variable "v_hybrid_activation_region" {}
 variable "v_hybrid_activation_function_name" {}
