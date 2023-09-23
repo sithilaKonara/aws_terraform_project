@@ -1,0 +1,110 @@
+description: Mount NFS shares after prod-25 patching.
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  InstanceIds:
+    type: StringList
+    description: (Required) Provide list of instances
+  AutomationAssumeRole:
+    type: String
+    description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+    default: ''
+  sourceType:
+    description: (Required) The download source.
+    type: String
+    default: HTTP
+  scriptdownload:
+    description: Downloading the script from the repo
+    type: StringMap
+    default:
+      url: 'http://url/repos/abccompany-custom/nfsmount.sh'
+      allowInsecureDownload: true
+  destinationPathLinux:
+    description: Destination path for the script
+    type: String
+    default: /tmp/nfsmount.sh
+mainSteps:
+  - name: GetInstance
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: ssm
+      Api: DescribeInstanceInformation
+      Filters:
+        - Key: InstanceIds
+          Values: '{{ InstanceIds }}'
+    outputs:
+      - Name: myInstance
+        Selector: '$.InstanceInformationList[0].InstanceId'
+        Type: String
+      - Name: platform
+        Selector: '$.InstanceInformationList[0].PlatformType'
+        Type: String
+  - name: ChoosePlatform
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: jobforwindows
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Windows
+        - NextStep: Downloadthescript
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Linux
+  - name: jobforwindows
+    action: 'aws:runCommand'
+    timeoutSeconds: 60
+    isCritical: true
+    onFailure: Abort
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        commands:
+          - echo "This is windows aborting the job"
+      DocumentName: AWS-RunPowerShellScript
+    isEnd: true
+  - name: Downloadthescript
+    action: 'aws:runCommand'
+    timeoutSeconds: 60
+    isCritical: true
+    maxAttempts: 1
+    onFailure: Abort
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        sourceType: '{{ sourceType }}'
+        sourceInfo: '{{ scriptdownload }}'
+        destinationPath: '{{ destinationPathLinux }}'
+      DocumentName: abccompany-DownloadFiles
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'Nfsmount/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=Downloadthescript'
+    nextStep: Executethescript
+  - name: Executethescript
+    action: 'aws:runCommand'
+    timeoutSeconds: 300
+    isCritical: true
+    onFailure: Abort
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        commands:
+          - bash /tmp/nfsmount.sh
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'Nfsmount/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=Executethescript'
+    nextStep: Removethescript
+  - name: Removethescript
+    action: 'aws:runCommand'
+    timeoutSeconds: 60
+    isCritical: true
+    onFailure: Abort
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        commands:
+          - rm -rf /tmp/nfsmount.sh
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'Nfsmount/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=Removethescript'
+    isEnd: true

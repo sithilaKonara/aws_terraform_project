@@ -1,0 +1,158 @@
+description: Execute a custom document for patch scanning
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  InstanceIds:
+    type: StringList
+    description: (Required) EC2 Instance(s) to restart
+  AutomationAssumeRole:
+    type: String
+    description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+    default: ''
+  WorkingDirectory:
+    default: ''
+    description: (Optional) The path to the working directory on your instance.
+    type: String
+    maxChars: 4096
+  ExecutionTimeout:
+    default: '3600'
+    description: (Optional) The time in seconds for a command to complete before it is considered to have failed. Default is 3600 (1 hour). Maximum is 172800 (48 hours).
+    type: String
+  Operation:
+    type: String
+    description: (Required) The update or configuration to perform on the instance. The system checks if patches specified in the patch baseline are installed on the instance. The install operation installs patches missing from the baseline.
+    allowedValues:
+      - Scan
+    default: Scan
+  SnapshotId:
+    type: String
+    description: (Optional) The snapshot ID to use to retrieve a patch baseline snapshot.
+    allowedPattern: '(^$)|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    default: ''
+  InstallOverrideList:
+    type: String
+    description: (Optional) An https URL or an Amazon S3 path-style URL to the list of patches to be installed. This patch installation list overrides the patches specified by the default patch baseline.
+    allowedPattern: '(^$)|^https://.+$|^s3://([^/]+)/(.*?([^/]+))$'
+    default: ''
+  RebootOption:
+    type: String
+    description: '(Optional) Reboot behavior after a patch Install operation. If you choose NoReboot and patches are installed, the instance is marked as non-compliant until a subsequent reboot and scan.'
+    allowedValues:
+      - NoReboot
+    default: NoReboot
+  ResourceType:
+    type: String
+    description: (Optional) Resource Type ManagedInstance/EC2
+    default: ManagedInstance
+    allowedValues:
+      - ManagedInstance
+      - EC2
+mainSteps:
+  - name: StartAutomationTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: 'step:GetInstance'
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: ANALYSIS_STATUS
+          Value: Pending
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+  - name: GetInstance
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: ssm
+      Api: DescribeInstanceInformation
+      Filters:
+        - Key: InstanceIds
+          Values: '{{ InstanceIds }}'
+    outputs:
+      - Name: myInstance
+        Selector: '$.InstanceInformationList[0].InstanceId'
+        Type: String
+      - Name: platform
+        Selector: '$.InstanceInformationList[0].PlatformType'
+        Type: String
+      - Name: platformName
+        Selector: '$.InstanceInformationList[0].PlatformName'
+        Type: String
+  - name: ChooseOS1
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: CentOS
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Oracle
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Red
+        - NextStep: RunPatchBaseline
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Ubuntu
+        - NextStep: RunPatchBaseline
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Debian
+        - NextStep: RunPatchBaseline
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Microsoft
+  - name: EnableCorrectRepoLinux
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    maxAttempts: 1
+    onFailure: 'step:RunPatchBaseline'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: yum-config-manager --disable \* && yum-config-manager --enable abccompany-monthly
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+  - name: RunPatchBaseline
+    timeoutSeconds: 3600
+    onFailure: 'step:PostFailedTags'
+    action: 'aws:runCommand'
+    maxAttempts: 1
+    inputs:
+      Parameters:
+        SnapshotId: '{{ SnapshotId }}'
+        InstallOverrideList: '{{ InstallOverrideList }}'
+        Operation: '{{ Operation }}'
+      InstanceIds: '{{ InstanceIds }}'
+      DocumentName: abccompany-RunPatchBaseline
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: PostCompletedTags
+  - name: PostCompletedTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: Abort
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: ANALYSIS_STATUS
+          Value: Completed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    isEnd: true
+  - name: PostFailedTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: Abort
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: ANALYSIS_STATUS
+          Value: Failed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    isEnd: true

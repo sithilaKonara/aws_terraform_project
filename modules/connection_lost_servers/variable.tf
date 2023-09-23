@@ -1,0 +1,15 @@
+variable "v_connection_lost_servers_aws_account" {}
+variable "v_connection_lost_servers_aws_region" {}
+variable "v_connection_lost_servers_function_name" {}
+variable "v_connection_lost_servers_codepipeline_artifact_s3_bkt" {}
+variable "v_connection_lost_servers_member_accounts" {}
+#variable "v_connection_lost_servers_kms_key" {}
+#variable "v_connection_lost_servers_iam_roles" {}
+variable "v_connection_lost_servers_iam_role_automation_execution" {}
+variable "v_connection_lost_servers_lambda_ecs_iam_roles" {}
+#variable "v_connection_lost_servers_glue_ssm_global_resource_sync_database" {}
+#variable "v_connection_lost_servers_s3_bucket_athena_query_result" {}
+#variable "v_connection_lost_servers_sns_ssm_arn" {}
+#variable "v_connection_lost_servers_vpc_private_subnets" {}
+#variable "v_connection_lost_servers_ecs_cluster_name" {}
+#variable "v_connection_lost_servers_eventbridge_rules" {}

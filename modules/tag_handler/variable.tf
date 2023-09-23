@@ -1,0 +1,13 @@
+variable "v_tag_handler_aws_account" {}
+variable "v_tag_handler_aws_region" {}
+variable "v_tag_handler_function_name" {}
+variable "v_tag_handler_codepipeline_artifact_s3_bkt" {}
+variable "v_tag_handler_s3_bkt" {}
+variable "v_tag_handler_kms_key" {}
+variable "v_tag_handler_iam_roles" {}
+variable "v_tag_handler_iam_role_automation_execution" {}
+variable "v_tag_handler_glue_ssm_global_resource_sync_database" {}
+variable "v_tag_handler_s3_bucket_athena_query_result" {}
+variable "v_tag_handler_sns_ssm_arn" {}
+variable "v_tag_handler_vpc_private_subnets" {}
+variable "v_tag_handler_ecs_cluster_name" {}

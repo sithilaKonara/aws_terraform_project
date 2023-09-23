@@ -1,0 +1,443 @@
+description: Custom patching execution with pre and post commands
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  InstanceIds:
+    type: StringList
+    description: (Required) EC2 Instance(s) to restart
+  AutomationAssumeRole:
+    type: String
+    description: (Optional) The ARN of the role that allows Automation to perform the actions on your behalf.
+    default: ''
+  WorkingDirectory:
+    default: ''
+    description: (Optional) The path to the working directory on your instance.
+    type: String
+    maxChars: 4096
+  ExecutionTimeout:
+    default: '3600'
+    description: (Optional) The time in seconds for a command to complete before it is considered to have failed. Default is 3600 (1 hour). Maximum is 172800 (48 hours).
+    type: String
+  SleepTime:
+    default: PT30S
+    description: (Optional) The time in seconds adding sleep between instructions.
+    type: String
+  SleepTimeReboot:
+    default: PT300S
+    description: (Optional) The time in seconds before and after reboot.
+    type: String
+  Operation:
+    type: String
+    description: (Required) The update or configuration to perform on the instance. The system checks if patches specified in the patch baseline are installed on the instance. The install operation installs patches missing from the baseline.
+    allowedValues:
+      - Scan
+      - Install
+  PreWindowCommands:
+    description: (Required) Specify a shell script or a command to run.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  PostWindowCommands:
+    description: (Required) Specify a shell script or a command to run.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  PreLinuxCommands:
+    description: (Required) Specify a shell script or a command to run.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  PostLinuxCommands:
+    description: (Required) Specify a shell script or a command to run.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  LinuxRebootCommand:
+    description: (Required) Specify the reboot command for Linux.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  WindowsRebootCommand:
+    description: (Required) Specify the reboot command for Windows.
+    type: StringList
+    displayType: textarea
+    minItems: 1
+  SnapshotId:
+    type: String
+    description: (Optional) The snapshot ID to use to retrieve a patch baseline snapshot.
+    allowedPattern: '(^$)|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    default: ''
+  InstallOverrideList:
+    type: String
+    description: (Optional) An https URL or an Amazon S3 path-style URL to the list of patches to be installed. This patch installation list overrides the patches specified by the default patch baseline.
+    allowedPattern: '(^$)|^https://.+$|^s3://([^/]+)/(.*?([^/]+))$'
+    default: ''
+  RebootOption:
+    type: String
+    description: '(Optional) Reboot behavior after a patch Install operation. If you choose NoReboot and patches are installed, the instance is marked as non-compliant until a subsequent reboot and scan.'
+    allowedValues:
+      - RebootIfNeeded
+      - NoReboot
+    default: RebootIfNeeded
+  ResourceType:
+    type: String
+    description: (Optional) Resource Type ManagedInstance/EC2
+    default: ManagedInstance
+    allowedValues:
+      - ManagedInstance
+      - EC2
+mainSteps:
+  - name: StartAutomationTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: 'step:GetInstance'
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: PRE_PATCHING_STATUS
+          Value: Pending
+        - Key: PATCHING_STATUS
+          Value: Pending
+        - Key: POST_PATCHING_STATUS
+          Value: Pending
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+  - name: GetInstance
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: ssm
+      Api: DescribeInstanceInformation
+      Filters:
+        - Key: InstanceIds
+          Values: '{{ InstanceIds }}'
+    outputs:
+      - Name: myInstance
+        Selector: '$.InstanceInformationList[0].InstanceId'
+        Type: String
+      - Name: platform
+        Selector: '$.InstanceInformationList[0].PlatformType'
+        Type: String
+      - Name: platformName
+        Selector: '$.InstanceInformationList[0].PlatformName'
+        Type: String
+  - name: ChoosePlatform1
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: DownloadPythonScript
+          Variable: '{{GetInstance.platformName}}'
+          Contains: CentOS
+        - NextStep: DownloadPythonScript
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Oracle
+        - NextStep: DownloadPythonScript
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Red
+        - NextStep: DownloadPythonScript
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Ubuntu
+        - NextStep: DownloadPythonScript
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Debian
+        - NextStep: ChooseOS1
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Microsoft
+  - name: DownloadPythonScript
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    maxAttempts: 1
+    onFailure: 'step:ChoosePlatform2'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        sourceInfo: {"url":"http://10.25.5.80/repos/os_patch/ssm_pre_patching.py","allowInsecureDownload":true}
+        sourceType: HTTP
+        destinationPath: /tmp/ssm_pre_patching.py
+      DocumentName: abccompany-DownloadFiles
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+  - name: ExecutePythonScript
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    maxAttempts: 1
+    onFailure: 'step:ChoosePlatform2'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands:
+          - python /tmp/ssm_pre_patching.py
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+  - name: ChoosePlatform2
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: CentOS
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Oracle
+        - NextStep: EnableCorrectRepoLinux
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Red
+        - NextStep: ChooseOS1
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Ubuntu
+        - NextStep: ChooseOS1
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Debian
+        - NextStep: ChooseOS1
+          Variable: '{{GetInstance.platformName}}'
+          Contains: Microsoft
+  - name: EnableCorrectRepoLinux
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    maxAttempts: 1
+    onFailure: 'step:ChooseOS1'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands:
+          - yum-config-manager --disable \* && yum-config-manager --enable abccompany-monthly && yum -y install yum-utils && package-cleanup -y --oldkernels --count=1
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+  - name: ChooseOS1
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: RunWindowsPreJobCommands
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Windows
+        - NextStep: RunLinuxPreJobCommands
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Linux
+  - name: RunWindowsPreJobCommands
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    onFailure: 'step:FailedPrePatching'
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ PreWindowCommands }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunPowerShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: CompletedPrePatching
+  - name: RunLinuxPreJobCommands
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: false
+    maxAttempts: 1
+    onFailure: 'step:FailedPrePatching'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ PreLinuxCommands }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: CompletedPrePatching
+  - name: FailedPrePatching
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: 'step:RunPatchBaseline'
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: PRE_PATCHING_STATUS
+          Value: Failed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    nextStep: SleepBeforePatching
+  - name: CompletedPrePatching
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: 'step:RunPatchBaseline'
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: PRE_PATCHING_STATUS
+          Value: Completed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+  - name: SleepBeforePatching
+    action: 'aws:sleep'
+    inputs:
+      Duration: '{{ SleepTime }}'
+  - name: RunPatchBaseline
+    timeoutSeconds: 10800
+    onFailure: 'step:FailedTags'
+    action: 'aws:runCommand'
+    maxAttempts: 1
+    inputs:
+      Parameters:
+        SnapshotId: '{{ SnapshotId }}'
+        InstallOverrideList: '{{ InstallOverrideList }}'
+        Operation: '{{ Operation }}'
+      InstanceIds: '{{ InstanceIds }}'
+      DocumentName: abccompany-RunPatchBaseline
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: CreatePatchingTags
+  - name: FailedTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: Continue
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: PATCHING_STATUS
+          Value: Failed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    nextStep: SleepAfterPatching
+  - name: CreatePatchingTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: 'step:ChooseOS2'
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: PATCHING_STATUS
+          Value: Completed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+  - name: SleepAfterPatching
+    action: 'aws:sleep'
+    inputs:
+      Duration: '{{ SleepTimeReboot }}'
+  - name: ChooseOS2
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: RunWindowsRebootCommand
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Windows
+        - NextStep: RunLinuxRebootCommand
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Linux
+  - name: RunWindowsRebootCommand
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: true
+    onFailure: 'step:RunWindowsPostJobCommands'
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ WindowsRebootCommand }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunPowerShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: SleepAfterReboot
+  - name: RunLinuxRebootCommand
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: true
+    maxAttempts: 1
+    onFailure: 'step:RunLinuxPostJobCommands'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ LinuxRebootCommand }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: SleepAfterReboot
+  - name: SleepAfterReboot
+    action: 'aws:sleep'
+    inputs:
+      Duration: '{{ SleepTimeReboot }}'
+  - name: ChooseOS3
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: RunWindowsPostJobCommands
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Windows
+        - NextStep: RunLinuxPostJobCommands
+          Variable: '{{GetInstance.platform}}'
+          StringEquals: Linux
+  - name: RunWindowsPostJobCommands
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: true
+    onFailure: 'step:PostFailedTags'
+    maxAttempts: 1
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ PostWindowCommands }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunPowerShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: PostCompletedTags
+  - name: RunLinuxPostJobCommands
+    action: 'aws:runCommand'
+    timeoutSeconds: 900
+    isCritical: true
+    maxAttempts: 1
+    onFailure: 'step:PostFailedTags'
+    inputs:
+      InstanceIds: '{{ InstanceIds }}'
+      Parameters:
+        workingDirectory: '{{ WorkingDirectory }}'
+        commands: '{{ PostLinuxCommands }}'
+        executionTimeout: '{{ ExecutionTimeout }}'
+      DocumentName: AWS-RunShellScript
+      OutputS3BucketName: 'ssm-logs-ap-southeast-1-{{ global:ACCOUNT_ID }}'
+      OutputS3KeyPrefix: 'AWS-Patching/accountid={{ global:ACCOUNT_ID }}/region={{ global:REGION }}/resourcetype=ManagedInstancePatching'
+    nextStep: PostCompletedTags
+  - name: PostCompletedTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: Abort
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: POST_PATCHING_STATUS
+          Value: Completed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    isEnd: true
+  - name: PostFailedTags
+    action: 'aws:createTags'
+    maxAttempts: 1
+    onFailure: Abort
+    inputs:
+      ResourceType: '{{ ResourceType }}'
+      ResourceIds: '{{ InstanceIds }}'
+      Tags:
+        - Key: POST_PATCHING_STATUS
+          Value: Failed
+        - Key: LAST_PATCHING_TIME
+          Value: '{{ global:DATE_TIME }}'
+    isEnd: true
