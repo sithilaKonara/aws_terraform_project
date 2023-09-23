@@ -5,7 +5,7 @@ import os
 
 SNS_ARN = os.environ['SNS_ARN']                                     # SNS ARN for notifications
 ASSUME_EXECUTION_ROLE = os.environ['ASSUME_EXECUTION_ROLE']         # SSM target execution Role
-PATCH_DEPLOYMENT_TRACKER = os.environ['PATCH_DEPLOYMENT_TRACKER']   # SSM patch deplyment tracker DB
+PATCH_DEPLOYMENT_TRACKER = os.environ['PATCH_DEPLOYMENT_TRACKER']   # SSM patch deployment tracker DB
 # ECS_CLUSTER_PROPERTIES = os.environ['ECS_CLUSTER_PROPERTIES']     #### > What is the purpose of this < ####
 # 'subnet-0785fd1c72b989729,subnet-0e73f175a37f03cd5'
 PRIVATE_SUBNETS = os.environ['PRIVATE_SUBNETS']                     # VPC private subnets

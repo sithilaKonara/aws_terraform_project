@@ -339,23 +339,23 @@ module "ms_teams_notifications" {
 #   v_biscom_notification_ses_sender         = var.v_ses_notification["ses_email_identity"]
 # }
 
-# module "connection_lost_servers" {
-#   source                                                 = "./modules/connection_lost_servers"
-#   v_connection_lost_servers_aws_account                  = data.aws_caller_identity.current.account_id
-#   v_connection_lost_servers_aws_region                   = data.aws_region.current.name
-#   v_connection_lost_servers_function_name                = var.v_cls_function_name
-#   v_connection_lost_servers_codepipeline_artifact_s3_bkt = module.tags_reset.o_codepipeline_artifact_s3_bkt
-#   v_connection_lost_servers_member_accounts              = var.v_member_accounts
-#   # v_connection_lost_servers_eventbridge_rules             = var.v_eh_eventbridge_rules
-#   # v_connection_lost_servers_iam_roles                     = module.tags_reset.o_iam_roles
-#   v_connection_lost_servers_iam_role_automation_execution = module.system_manager.o_ssm-automationExecutionRole
-#   # v_connection_lost_servers_vpc_private_subnets           = module.vpc.o_private_subnets
-#   # v_connection_lost_servers_ecs_cluster_name              = module.tags_reset.o_ecs_cluster
-#   v_connection_lost_servers_lambda_ecs_iam_roles = module.tags_reset.o_iam_roles
+module "connection_lost_servers" {
+  source                                                 = "./modules/connection_lost_servers"
+  v_connection_lost_servers_aws_account                  = data.aws_caller_identity.current.account_id
+  v_connection_lost_servers_aws_region                   = data.aws_region.current.name
+  v_connection_lost_servers_function_name                = var.v_cls_function_name
+  v_connection_lost_servers_codepipeline_artifact_s3_bkt = module.tags_reset.o_codepipeline_artifact_s3_bkt
+  v_connection_lost_servers_member_accounts              = var.v_member_accounts
+  # v_connection_lost_servers_eventbridge_rules             = var.v_eh_eventbridge_rules
+  # v_connection_lost_servers_iam_roles                     = module.tags_reset.o_iam_roles
+  v_connection_lost_servers_iam_role_automation_execution = module.system_manager.o_ssm-automationExecutionRole
+  # v_connection_lost_servers_vpc_private_subnets           = module.vpc.o_private_subnets
+  # v_connection_lost_servers_ecs_cluster_name              = module.tags_reset.o_ecs_cluster
+  v_connection_lost_servers_lambda_ecs_iam_roles = module.tags_reset.o_iam_roles
 
-#   depends_on = [
-#     module.tags_reset,
-#     module.system_manager,
-#     module.vpc
-#   ]
-# }
+  depends_on = [
+    module.tags_reset,
+    module.system_manager,
+    module.vpc
+  ]
+}
