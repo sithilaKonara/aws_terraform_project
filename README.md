@@ -1,6 +1,6 @@
 # aws_terraform_project
 
-This project contains the Terraform code for deploying an Onprem server patching automation which has been built on AWS.
+This project contains the Terraform code for deploying resources for an Onprem server patching automation on AWS.
 
 ## File Structure
 
